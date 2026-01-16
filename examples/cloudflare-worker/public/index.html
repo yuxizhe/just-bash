@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>just-bash on Cloudflare Workers</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+      background: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    .header {
+      background: #2d2d2d;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #3d3d3d;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot.red { background: #ff5f56; }
+    .dot.yellow { background: #ffbd2e; }
+    .dot.green { background: #27c93f; }
+
+    .title {
+      color: #888;
+      font-size: 14px;
+      margin-left: 12px;
+      flex: 1;
+      text-align: center;
+    }
+
+    .terminal {
+      padding: 20px;
+      background: #1e1e1e;
+      height: 500px;
+      overflow-y: auto;
+      color: #d4d4d4;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .terminal::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .terminal::-webkit-scrollbar-track {
+      background: #2d2d2d;
+    }
+
+    .terminal::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+    }
+
+    .output-line {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .prompt {
+      color: #4ec9b0;
+      user-select: none;
+    }
+
+    .command {
+      color: #dcdcaa;
+    }
+
+    .output {
+      color: #d4d4d4;
+    }
+
+    .error {
+      color: #f48771;
+    }
+
+    .success {
+      color: #4ec9b0;
+    }
+
+    .input-container {
+      background: #2d2d2d;
+      padding: 16px 20px;
+      display: flex;
+      gap: 12px;
+      border-top: 1px solid #3d3d3d;
+    }
+
+    #commandInput {
+      flex: 1;
+      background: #1e1e1e;
+      border: 1px solid #3d3d3d;
+      color: #d4d4d4;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #commandInput:focus {
+      border-color: #007acc;
+    }
+
+    #executeBtn {
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    #executeBtn:hover {
+      background: #005a9e;
+    }
+
+    #executeBtn:active {
+      transform: scale(0.98);
+    }
+
+    #executeBtn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    .examples {
+      padding: 20px;
+      background: #2d2d2d;
+      border-top: 1px solid #3d3d3d;
+    }
+
+    .examples-title {
+      color: #888;
+      font-size: 12px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .example-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .example-btn {
+      background: #3d3d3d;
+      color: #d4d4d4;
+      border: 1px solid #555;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .example-btn:hover {
+      background: #4d4d4d;
+      border-color: #007acc;
+      color: #4ec9b0;
+    }
+
+    .session-info {
+      background: #2d2d2d;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #3d3d3d;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .session-id {
+      color: #4ec9b0;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #555;
+      border-top-color: #007acc;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .intro {
+      color: #888;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #2d2d2d;
+      border-radius: 6px;
+      border-left: 3px solid #007acc;
+    }
+
+    .intro-title {
+      color: #4ec9b0;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+      <div class="title">just-bash @ Cloudflare Workers</div>
+    </div>
+
+    <div class="terminal" id="terminal">
+      <div class="intro">
+        <div class="intro-title">🚀 Welcome to just-bash on Cloudflare Workers!</div>
+        <div>This is a live bash interpreter running at the edge with persistent filesystem storage via Durable Objects.</div>
+        <div style="margin-top: 8px;">Try some commands below or click the examples 👇</div>
+      </div>
+    </div>
+
+    <div class="input-container">
+      <input
+        type="text"
+        id="commandInput"
+        placeholder="Enter bash command (e.g., ls -la, echo 'Hello World', mkdir test)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="executeBtn">Execute</button>
+    </div>
+
+    <div class="examples">
+      <div class="examples-title">Quick Examples</div>
+      <div class="example-buttons">
+        <button class="example-btn" data-cmd="echo 'Hello from the edge! 🌍'">Echo</button>
+        <button class="example-btn" data-cmd="pwd">Print Working Directory</button>
+        <button class="example-btn" data-cmd="ls -la">List Files</button>
+        <button class="example-btn" data-cmd="mkdir -p /app/data && echo 'Success!' && ls -la /app">Create Directory</button>
+        <button class="example-btn" data-cmd="echo 'Driven AI!' > /app/test.txt && cat /app/test.txt">Write & Read File</button>
+        <button class="example-btn" data-cmd="cat /app/test.txt">Read Previous File</button>
+        <button class="example-btn" data-cmd="date">Current Date</button>
+        <button class="example-btn" data-cmd="find /app -type f">Find Files</button>
+        <button class="example-btn" data-cmd="grep -r 'AI' /app">Search in /app</button>
+        <button class="example-btn" data-cmd="echo 'line1\nline2\nline3' | wc -l">Count Lines</button>
+      </div>
+    </div>
+
+    <div class="session-info">
+      <div>Session: <span class="session-id" id="sessionId">loading...</span></div>
+      <div>Filesystem: Cloudflare Durable Objects</div>
+    </div>
+  </div>
+
+  <script>
+    const terminal = document.getElementById('terminal');
+    const commandInput = document.getElementById('commandInput');
+    const executeBtn = document.getElementById('executeBtn');
+    const sessionIdEl = document.getElementById('sessionId');
+
+    // Generate or retrieve session ID
+    let sessionId = localStorage.getItem('bash-session-id');
+    if (!sessionId) {
+      sessionId = 'user-' + Math.random().toString(36).substring(2, 11);
+      localStorage.setItem('bash-session-id', sessionId);
+    }
+    sessionIdEl.textContent = sessionId;
+
+    // Add line to terminal
+    function addLine(content, className = '') {
+      const line = document.createElement('div');
+      line.className = 'output-line ' + className;
+      line.textContent = content;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Execute command
+    async function executeCommand(command) {
+      if (!command.trim()) return;
+
+      // Show command
+      addLine('$ ' + command, 'command');
+
+      // Disable input
+      executeBtn.disabled = true;
+      executeBtn.innerHTML = 'Running<span class="loading"></span>';
+      commandInput.disabled = true;
+
+      try {
+        const response = await fetch(`/exec?session=${encodeURIComponent(sessionId)}&cmd=${encodeURIComponent(command)}`);
+        const result = await response.json();
+
+        if (result.success) {
+          // Show stdout
+          if (result.stdout) {
+            addLine(result.stdout, 'output');
+          }
+
+          // Show stderr
+          if (result.stderr) {
+            addLine(result.stderr, 'error');
+          }
+
+          // Show exit code if non-zero
+          if (result.exitCode !== 0) {
+            addLine(`Exit code: ${result.exitCode}`, 'error');
+          }
+        } else {
+          addLine('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        addLine('Network error: ' + error.message, 'error');
+      } finally {
+        // Re-enable input
+        executeBtn.disabled = false;
+        executeBtn.textContent = 'Execute';
+        commandInput.disabled = false;
+        commandInput.value = '';
+        commandInput.focus();
+
+        // Add spacing
+        addLine('');
+      }
+    }
+
+    // Event listeners
+    executeBtn.addEventListener('click', () => {
+      executeCommand(commandInput.value);
+    });
+
+    commandInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        executeCommand(commandInput.value);
+      }
+    });
+
+    // Example buttons
+    document.querySelectorAll('.example-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cmd = btn.getAttribute('data-cmd');
+        commandInput.value = cmd;
+        executeCommand(cmd);
+      });
+    });
+
+    // Focus input on load
+    commandInput.focus();
+
+    // Show initial greeting
+    addLine('Ready! Session filesystem is persistent across page reloads.', 'success');
+    addLine('Try creating a file, refresh the page, and read it back! 🎉', 'success');
+    addLine('');
+  </script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Cloudflare Worker configuration for just-bash with Durable Objects
+# See: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "just-bash-worker"
+main = "worker.ts"
+compatibility_date = "2024-09-23"
+account_id = "3c181a61e54b069ab102a8c08e966237"
+compatibility_flags = ["nodejs_compat"]
+
+# Include HTML as text import
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+# Durable Object bindings
+[[durable_objects.bindings]]
+name = "BASH_FS"
+class_name = "BashFileSystem"
+script_name = "just-bash-worker"
+
+# Durable Object migrations
+# Using new_sqlite_classes is required for Durable Objects on the Free Plan
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BashFileSystem"]
+
+# Resource limits
+# Adjust these based on your needs
+
+# Optional: Add observability
+[observability]
+enabled = true

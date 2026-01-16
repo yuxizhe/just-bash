@@ -143,7 +143,10 @@ import { ReadWriteFs } from "just-bash/fs/read-write-fs";
 const fs = new MountableFs({ base: new InMemoryFs() });
 
 // Mount read-only knowledge base
-fs.mount("/mnt/knowledge", new OverlayFs({ root: "/path/to/knowledge", readOnly: true }));
+fs.mount(
+  "/mnt/knowledge",
+  new OverlayFs({ root: "/path/to/knowledge", readOnly: true })
+);
 
 // Mount read-write workspace
 fs.mount("/home/agent", new ReadWriteFs({ root: "/path/to/workspace" }));
@@ -165,11 +168,35 @@ import { ReadWriteFs } from "just-bash/fs/read-write-fs";
 const fs = new MountableFs({
   base: new InMemoryFs(),
   mounts: [
-    { mountPoint: "/data", filesystem: new OverlayFs({ root: "/shared/data" }) },
-    { mountPoint: "/workspace", filesystem: new ReadWriteFs({ root: "/tmp/work" }) },
+    {
+      mountPoint: "/data",
+      filesystem: new OverlayFs({ root: "/shared/data" }),
+    },
+    {
+      mountPoint: "/workspace",
+      filesystem: new ReadWriteFs({ root: "/tmp/work" }),
+    },
   ],
 });
 ```
+
+**DoFsClient** - Cloudflare Durable Objects backed filesystem for persistent storage at the edge:
+
+```typescript
+import { Bash } from "just-bash";
+import { DoFsClient } from "just-bash/dist/fs/do-fs/index.js";
+
+// In a Cloudflare Worker
+const fs = new DoFsClient({
+  namespace: env.BASH_FS, // Durable Object namespace binding
+  objectName: "user-session-123",
+});
+
+const bash = new Bash({ fs });
+await bash.exec('echo "persistent" > file.txt'); // persists in Durable Object storage
+```
+
+See [Cloudflare Workers Integration](docs/cloudflare-workers.md) for a complete guide.
 
 ### AI SDK Tool
 
